@@ -83,12 +83,38 @@ int global_config(char *username, char *email)
 int local_config(char *username, char *email)
 {
    FILE *file = fopen(".neogit/config","w");
+   
+    char line[1000];
+    while (fgets(line, sizeof(line), file) != NULL) {
+      int length = strlen(line);
+
+      // remove '\n'
+      if (length > 0 && line[length - 1] == '\n') {
+         line[length - 1] = '\0';
+      }
+   }
    fprintf(file,"username: %s\n",username);
    fprintf(file,"email: %s\n",email);
    fprintf(file, "last_commit_ID: %d\n", 0);
    fprintf(file, "current_commit_ID: %d\n", 0);
    fprintf(file, "branch: %s", "master");
    fclose(file);
+   // create commits folder
+    if (mkdir(".neogit/commits", 0755) != 0) return 1;
+
+    // create files folder
+    if (mkdir(".neogit/files", 0755) != 0) return 1;
+
+    // create branches folder
+    if (mkdir(".neogit/branches", 0755) != 0) return 1;
+
+    file = fopen(".neogit/staging", "w");
+    fclose(file);
+
+    file = fopen(".neogit/tracks", "w");
+    fclose(file);
+
+    return 0;
 }
 
 
@@ -192,7 +218,7 @@ int reset(char *filepath)
    FILE *tmp_file = fopen(".neogit/new_staging", "w");
    if (tmp_file == NULL) return 1;
 
-   char line[1000];
+   char line[MAX_LINE_LENGTH];
    while (fgets(line, sizeof(line), file) != NULL) {
       int length = strlen(line);
 
@@ -547,10 +573,10 @@ bool is_staged(char *filename)
     return false;
 }
 
-/*int make_branch(int argc, char * const argv[])
+int make_branch(int argc, char * const argv[])
 {
 
-}*/
+}
 
 int run_checkout(int argc, char * const argv[]) {
     if (argc < 3) return 1;
