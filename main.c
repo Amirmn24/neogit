@@ -575,7 +575,27 @@ bool is_staged(char *filename)
 
 int make_branch(int argc, char * const argv[])
 {
+    if(argc == 2){
 
+    }
+    else{
+        char branch[1000];
+        strcpy(branch, argv[2]);
+        struct dirent *entry;
+        DIR *dir = opendir(".neogit/branches");
+        if(dir == NULL){
+            perror("error oppening current directory\n");
+            return 1;
+        }
+        // searching files
+        while((entry = readdir(dir))!=NULL){
+            if(strcmp(branch,entry->d_name)==0){
+                printf("branch already exists\n");
+                return 0;
+            }
+        }
+
+    }
 }
 
 int run_checkout(int argc, char * const argv[]) {
@@ -653,6 +673,10 @@ int main(int argc, char *argv[])
       return global_config(argv[3],argv[4]);
    }
 
+   else if(strcmp(argv[1],"config")==0){
+        return local_config(argv[3],argv[4]);
+   }
+
    else if(strcmp(argv[1],"init")==0){
       return initialize(argc, argv);
    }
@@ -692,5 +716,25 @@ int main(int argc, char *argv[])
 
       else
          return reset(argv[2]);
+   }
+
+   else if(strcmp(argv[1],"status")==0){
+      return status(argc,argv);
+   }
+
+   else if(strcmp(argv[1],"commit")==0){
+      return run_commit(argc,argv);
+   }
+
+   else if(strcmp(argv[1],"log")==0){
+      return log_command(argc,argv);
+   }
+
+   else if(strcmp(argv[1],"branch")==0){
+      return make_branch(argc,argv);
+   }
+
+   else if(strcmp(argv[1],"checkout")==0){
+      return run_checkout(argc,argv);
    }
 }
