@@ -35,8 +35,13 @@ int track_file(char *filepath) ;
 bool is_tracked(char *filepath);
 int create_commit_file(int commit_ID, char *message);
 int find_file_last_commit(char* filepath) ;
-
-
+int log_command(int argc, char * const argv[]);
+int make_branch(int argc, char * const argv[]);
+int run_checkout(int argc, char * const argv[]);
+int find_file_last_change_before_commit(char *filepath, int commit_ID);
+int checkout_file(char *filepath, int commit_ID);
+int status(int argc, char * argv[]);
+bool is_staged(char *filename);
 
 
 int checkdir()
@@ -89,9 +94,9 @@ int local_config(char *username, char *email)
 
 int initialize(int argc, char* const argv[])
 {
-    char cwd[1024];
+    char cwd[MAX_FILENAME_LENGTH];
     if(getcwd(cwd, sizeof(cwd))==NULL) return 1;
-    char tmp_cwd[1024];
+    char tmp_cwd[MAX_FILENAME_LENGTH];
     int exists = 0;
     struct dirent *entry;
 
@@ -453,7 +458,7 @@ int find_file_last_commit(char* filepath)
     return max;
 }
 
-int log_command(){
+int log_command(int argc, char * const argv[]){
     FILE *file = fopen(".neogit/config", "r");
     if (file == NULL) return -1;
 
@@ -499,9 +504,118 @@ int log_command(){
     }
 }
 
-int make_branch(char *branchname)
+int status(int argc, char * argv[])
+{
+    struct dirent *entry;
+    DIR *dir = opendir(".");
+    if(dir == NULL){
+        perror("error oppening current directory\n");
+        return 1;
+    }
+    // searching files
+    while((entry = readdir(dir))!=NULL){
+        if(is_tracked(entry->d_name) && is_staged(entry->d_name))
+            printf("%s state is: +M\n", entry->d_name);
+        else if(~(is_tracked(entry->d_name)) && is_staged(entry->d_name))
+            printf("%s state is: +A\n", entry->d_name);
+        else if(is_tracked(entry->d_name) && ~(is_staged(entry->d_name)))
+            printf("%s has not changed\n", entry->d_name);
+    }
+    closedir(dir);
+
+}
+
+bool is_staged(char *filename)
+{
+    FILE *file = fopen(".neogit/staging", "r");
+    if (file == NULL) return false;
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        int length = strlen(line);
+
+        // remove '\n'
+        if (length > 0 && line[length - 1] == '\n') {
+            line[length - 1] = '\0';
+        }
+        
+        if (strcmp(line, filename) == 0) 
+            return true;
+
+    }
+    fclose(file); 
+
+    return false;
+}
+
+/*int make_branch(int argc, char * const argv[])
 {
 
+}*/
+
+int run_checkout(int argc, char * const argv[]) {
+    if (argc < 3) return 1;
+    
+    int commit_ID = atoi(argv[2]);
+
+    DIR *dir = opendir(".");
+    struct dirent *entry;
+    while((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG && is_tracked(entry->d_name)) {
+            checkout_file(entry->d_name, find_file_last_change_before_commit(entry->d_name, commit_ID));
+        }
+    }
+    closedir(dir);
+
+    return 0;
+}
+
+int find_file_last_change_before_commit(char *filepath, int commit_ID) {
+    char filepath_dir[MAX_FILENAME_LENGTH];
+    strcpy(filepath_dir, ".neogit/files/");
+    strcat(filepath_dir, filepath);
+
+    int max = -1;
+    
+    DIR *dir = opendir(filepath_dir);
+    struct dirent *entry;
+    if (dir == NULL) return 1;
+
+    while((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_REG) {
+            int tmp = atoi(entry->d_name);
+            if (tmp > max && tmp <= commit_ID) {
+                max = tmp;
+            }
+        }
+    }
+    closedir(dir);
+
+    return max;
+}
+
+int checkout_file(char *filepath, int commit_ID) {
+    char src_file[MAX_FILENAME_LENGTH];
+    strcpy(src_file, ".neogit/files/");
+    strcat(src_file, filepath);
+    char tmp[10];
+    sprintf(tmp, "/%d", commit_ID);
+    strcat(src_file, tmp);
+
+    FILE *read_file = fopen(src_file, "r");
+    if (read_file == NULL) return 1;
+    FILE *write_file = fopen(filepath, "w");
+    if (write_file == NULL) return 1;
+    
+    char line[MAX_LINE_LENGTH];
+
+    while (fgets(line, sizeof(line), read_file) != NULL) {
+        fprintf(write_file, "%s", line);
+    }
+    
+    fclose(read_file);
+    fclose(write_file);
+
+    return 0;
 }
 
 int main(int argc, char *argv[])
