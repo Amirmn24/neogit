@@ -4,7 +4,6 @@
 #include <dirent.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
@@ -80,6 +79,8 @@ int local_config(char *username, char *email)
    fprintf(file,"username: %s\n",username);
    fprintf(file,"email: %s\n",email);
    fprintf(file, "last_commit_ID: %d\n", 0);
+   fprintf(file, "current_commit_ID: %d\n", 0);
+   fprintf(file, "branch: %s", "master");
    fclose(file);
 }
 
@@ -450,7 +451,7 @@ int find_file_last_commit(char* filepath)
     return max;
 }
 
-int log(){
+int log_command(){
     FILE *file = fopen(".neogit/config", "r");
     if (file == NULL) return -1;
 
