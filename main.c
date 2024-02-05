@@ -7,11 +7,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 #define MAX_FILENAME_LENGTH 1000
 #define MAX_COMMIT_MESSAGE_LENGTH 2000
 #define MAX_LINE_LENGTH 1000
 #define MAX_MESSAGE_LENGTH 1000
+#define MAX_PATH_LENGTH 1000
 
 #define debug(x) printf("%s", x);
 
@@ -19,7 +21,7 @@ int checkdir();
 bool check_file_directory_exists(char *filepath);
 int global_config(char *username, char *email);
 int local_config(char *username, char *email);
-int initialize(int argc, char* argv[]);
+int initialize(int argc, char* const argv[]);
 int add(char *filepath);
 int add_depth(char * dirname);
 int reset(char *filepath);
@@ -77,11 +79,12 @@ int local_config(char *username, char *email)
    FILE *file = fopen(".neogit/config","w");
    fprintf(file,"username: %s\n",username);
    fprintf(file,"email: %s\n",email);
+   fprintf(file, "last_commit_ID: %d\n", 0);
    fclose(file);
 }
 
 
-int initialize(int argc, char* argv[])
+int initialize(int argc, char* const argv[])
 {
     char cwd[1024];
     if(getcwd(cwd, sizeof(cwd))==NULL) return 1;
@@ -381,8 +384,32 @@ int create_commit_file(int commit_ID, char *message)
     if (file == NULL) return 1;
 
     fprintf(file, "message: %s\n", message);
+
+    FILE* file2 = fopen(".neogit/config","r");
+    char line[MAX_LINE_LENGTH];
+    char author[1000];
+    while(fgets(line,sizeof(line),file2) != NULL){
+        int length = strlen(line);
+
+        // remove '\n'
+        if (length > 0 && line[length - 1] == '\n') {
+            line[length - 1] = '\0';
+        }
+
+        if(strncmp(line,"username:",9)==0){
+            sscanf(line,"username: %s",author);
+        }
+    }
+    fclose(file2);
+    fprintf(file, "author: %s\n",author);
+
+    time_t currentTime;
+    struct tm *localTime;
+    currentTime = time(NULL);
+    localTime = localtime(&currentTime);
+    fprintf(file, "time: %02d:%02d:%02d\n", localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
+
     fprintf(file, "files:\n");
-    
     DIR *dir = opendir(".");
     struct dirent *entry;
     if (dir == NULL) {
@@ -423,6 +450,51 @@ int find_file_last_commit(char* filepath)
     return max;
 }
 
+int log(){
+    FILE *file = fopen(".neogit/config", "r");
+    if (file == NULL) return -1;
+
+    int commit_count;
+    char line[MAX_LINE_LENGTH], tmp[10];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strncmp(line, "last_commit_ID", 14) == 0) {
+            sscanf(line, "last_commit_ID: %d\n", &commit_count);
+        }
+    }
+    char address[MAX_PATH_LENGTH];
+    strcpy(address,".neogit/commit/");
+    for(int i=commit_count; i>0; i--){
+        sprintf(tmp,"%d",i);
+        strcat(address,tmp);
+        FILE* file = fopen(address,"r");
+        int n=-1;
+        char line[MAX_LINE_LENGTH], msg[MAX_MESSAGE_LENGTH], author[1000];
+        int h, m, s;
+        while (fgets(line, sizeof(line), file) != NULL) {
+            int length = strlen(line);
+
+            // remove '\n'
+            if (length > 0 && line[length - 1] == '\n') {
+                line[length - 1] = '\0';
+            }
+
+            if(strncmp(line,"message:",8)==0){
+                sscanf(line,"message: %s", msg);
+            }
+            else if(strncmp(line,"author: ",7)==0){
+                sscanf(line, "author: %s", author);
+            }
+
+            else if(strncmp(line,"time:",5)==0){
+                sscanf(line, "time: %d:%d:%d", &h, &m, &s);
+            }
+
+            else
+                n++;
+        }
+        printf("Commit: ID '%d'\nAuthor: %s\nTime: %d:%d:%d\nMessage: '%s'\n", i, author, h, m, s, msg);
+    }
+}
 
 int main(int argc, char *argv[])
 {
