@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #define MAX_LINE_LENGTH 1000
 #define MAX_MESSAGE_LENGTH 1000
 #define MAX_PATH_LENGTH 1000
+
 
 #define debug(x) printf("%s", x);
 
@@ -495,6 +497,11 @@ int log_command(){
         }
         printf("Commit: ID '%d'\nAuthor: %s\nTime: %d:%d:%d\nMessage: '%s'\n", i, author, h, m, s, msg);
     }
+}
+
+int make_branch(char *branchname)
+{
+
 }
 
 int main(int argc, char *argv[])
