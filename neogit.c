@@ -23,7 +23,7 @@ bool check_file_directory_exists(char *filepath);
 int global_config(char *username, char *email);
 int local_config(char *username, char *email);
 int initialize(int argc, char* const argv[]);
-int add(char *filepath);
+int add(int argc, char * const argv[]);
 int add_depth(char * dirname);
 int reset(char *filepath);
 int reset_redo();
@@ -82,36 +82,13 @@ int global_config(char *username, char *email)
 
 int local_config(char *username, char *email)
 {
-   FILE *file = fopen(".neogit/config","w");
-   
+    FILE *file = fopen(".neogit/config","w");
     char line[1000];
-    while (fgets(line, sizeof(line), file) != NULL) {
-      int length = strlen(line);
-
-      // remove '\n'
-      if (length > 0 && line[length - 1] == '\n') {
-         line[length - 1] = '\0';
-      }
-   }
-   fprintf(file,"username: %s\n",username);
-   fprintf(file,"email: %s\n",email);
-   fprintf(file, "last_commit_ID: %d\n", 0);
-   fprintf(file, "current_commit_ID: %d\n", 0);
-   fprintf(file, "branch: %s", "master");
-   fclose(file);
-   // create commits folder
-    if (mkdir(".neogit/commits", 0755) != 0) return 1;
-
-    // create files folder
-    if (mkdir(".neogit/files", 0755) != 0) return 1;
-
-    // create branches folder
-    if (mkdir(".neogit/branches", 0755) != 0) return 1;
-
-    file = fopen(".neogit/staging", "w");
-    fclose(file);
-
-    file = fopen(".neogit/tracks", "w");
+    fprintf(file,"username: %s\n",username);
+    fprintf(file,"email: %s\n",email);
+    fprintf(file, "last_commit_ID: %d\n", 0);
+    fprintf(file, "current_commit_ID: %d\n", 0);
+    fprintf(file, "branch: %s", "master");
     fclose(file);
 
     return 0;
@@ -154,14 +131,34 @@ int initialize(int argc, char* const argv[])
     //make .neogit dir
      if(!exists){
         if(mkdir(".neogit",0755)) return 1;
+        FILE * file;
+        file = fopen(".neogit/staging", "w");
+        fclose(file);
+
+        file = fopen(".neogit/tracks", "w");
+        fclose(file);
+        strcat(cwd,"/.neogit");
+        if(chdir(cwd) != 0) return 1;
+        // create commits folder
+        if (mkdir("commits", 0755) != 0) return 1;
+
+        // create files folder
+        if (mkdir("files", 0755) != 0) return 1;
+
+        // create branches folder
+        if (mkdir("branches", 0755) != 0) return 1;
+
+        return 0;
      }
      else{
-        perror("neogit repository has already initialized\n");
+        printf("neogit repository has already initialized\n");
      }
 }
 
-int add(char *filepath)
+int add(int argc, char * const argv[])
 {
+   char filepath[MAX_FILENAME_LENGTH];
+   strcmp(filepath, argv[2]);
    FILE *file = fopen(".neogit/staging","r");
    if(file == NULL) return 1;
    char line[1000];
@@ -688,7 +685,7 @@ int main(int argc, char *argv[])
       }
       else if(strcmp(argv[2],"-f")==0){
          for(int i=3; i<argc-3; i++){
-            return add(argv[i]);
+            return add(argc, argv);
          }
       }
       else if(strcmp(argv[2],"-n")==0){
@@ -697,7 +694,7 @@ int main(int argc, char *argv[])
          return add_depth(cwd);
       }
       else
-         return add(argv[2]);
+         return add(argc, argv);
    }
 
    else if(strcmp(argv[1],"reset")==0){
