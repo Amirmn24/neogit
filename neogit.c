@@ -93,7 +93,7 @@ int local_config(char *username, char *email)
     file = fopen(".neogit/staging", "w");
     fclose(file);
 
-    printf("Have a good luck in your project %s!\n", username);
+    printf("Good luck in your project %s!\n", username);
 
     file = fopen(".neogit/tracks", "w");
     fclose(file);
@@ -190,18 +190,10 @@ int add_depth(char * dirname)
    DIR *dir = opendir(dirname);
    int b=0; 
    while((entry = readdir(dir))!=NULL){
-      while(fgets(line,sizeof(line),file)!=NULL){
-         int length = strlen(line);
-         if (length > 0 && line[length - 1] == '\n') {
-            line[length - 1] = '\0';
-         }
-         if(strcmp(line, entry->d_name)==0){
-            printf("%s exists in staging area\n",entry->d_name);
-            b=1;
-         }
-      }
-      if(!b)
-         printf("%s is not staged\n", entry->d_name);
+      if(is_staged(entry->d_name))
+        printf("%s exists in staging file\n", entry->d_name);
+      else
+        printf("%s is not staged\n", entry->d_name);
    }
 }
 
@@ -304,16 +296,17 @@ int run_commit(int argc, char * const argv[])
     // free staging
     file = fopen(".neogit/staging", "w");
     if (file == NULL) return 1;
+
     fclose(file);
 
     create_commit_file(commit_ID, message);
-    printf("commit successfully with commit ID %d\ncommit message is %s\n", commit_ID, message);
+    printf("commit successfully with commit ID %d\ncommit message is '%s'\n", commit_ID, message);
 
     time_t currentTime;
     struct tm *localTime;
     currentTime = time(NULL);
     localTime = localtime(&currentTime);
-    fprintf(file, "time: %02d:%02d:%02d\n", localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
+    printf("time: %02d:%02d:%02d\n", localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
     
     return 0;
 }
@@ -418,7 +411,7 @@ int create_commit_file(int commit_ID, char *message)
     FILE *file = fopen(commit_filepath, "w");
     if (file == NULL) return 1;
 
-    fprintf(file, "message: %s\n", message);
+    fprintf(file, "message: '%s'\n", message);
 
     FILE* file2 = fopen(".neogit/config","r");
     char line[MAX_LINE_LENGTH];
@@ -492,45 +485,51 @@ int log_command(int argc, char * const argv[]){
     int commit_count;
     char line[MAX_LINE_LENGTH], tmp[10];
     while (fgets(line, sizeof(line), file) != NULL) {
-        if (strncmp(line, "last_commit_ID", 14) == 0) {
+        int length = strlen(line);
+
+        // remove '\n'
+        if (length > 0 && line[length - 1] == '\n') {
+            line[length - 1] = '\0';
+        }
+
+        if (strncmp(line, "last_commit_ID:", 15) == 0) {
             sscanf(line, "last_commit_ID: %d\n", &commit_count);
         }
     }
     fclose(file);
-    char address[MAX_PATH_LENGTH];
-    strcpy(address,".neogit/commit/");
-    char msg[MAX_MESSAGE_LENGTH], author[1000];
+    char nline[MAX_LINE_LENGTH], msg[MAX_MESSAGE_LENGTH], author[1000];
     int h, m, s, n;
     for(int i=commit_count; i>0; i--){
+        char address[MAX_PATH_LENGTH];
+        strcpy(address,".neogit/commits/");
         sprintf(tmp,"%d",i);
         strcat(address,tmp);
-        file = fopen(address,"r");
+        FILE *file1= fopen(address,"r");
         n=-1;
-        while (fgets(line, sizeof(line), file) != NULL) {
-            int length = strlen(line);
+        while(fgets(nline, sizeof(nline), file1) != NULL) {
+            int length = strlen(nline);
 
             // remove '\n'
-            if (length > 0 && line[length - 1] == '\n') {
-                line[length - 1] = '\0';
+            if (length > 0 && nline[length - 1] == '\n') {
+                nline[length - 1] = '\0';
+            }
+            if(strncmp(nline,"message:",8)==0){
+                sscanf(nline,"message: %s", msg);
+            }
+            else if(strncmp(nline,"author: ",7)==0){
+                sscanf(nline, "author: %s", author);
             }
 
-            if(strncmp(line,"message:",8)==0){
-                sscanf(line,"message: %s", msg);
-            }
-            else if(strncmp(line,"author: ",7)==0){
-                sscanf(line, "author: %s", author);
-            }
-
-            else if(strncmp(line,"time:",5)==0){
-                sscanf(line, "time: %d:%d:%d", &h, &m, &s);
+            else if(strncmp(nline,"time:",5)==0){
+                sscanf(nline, "time: %02d:%02d:%02d", &h, &m, &s);
             }
 
             else
                 n++;
         }
-        printf("Commit: ID '%d'\nAuthor: %s\nTime: %d:%d:%d\nMessage: '%s'\n", i, author, h, m, s, msg);
+        printf("Commit ID: '%d'\nAuthor: %s\nTime: %02d:%02d:%02d\nMessage: '%s'\n", i, author, h, m, s, msg);
+        fclose(file1);
     }
-    fclose(file);
 }
 
 int status(int argc, char * const argv[])
@@ -549,8 +548,9 @@ int status(int argc, char * const argv[])
             printf("%s state is: +A\n", entry->d_name);
         else if(is_tracked(entry->d_name) && ~(is_staged(entry->d_name)))
             printf("%s has not changed\n", entry->d_name);
-        else if(~(is_tracked(entry->d_name)) && ~(is_staged(entry->d_name)))
-            printf("%s: File is untracked\n", entry->d_name);
+        else if(~(is_tracked(entry->d_name)) && ~(is_staged(entry->d_name)) && strcmp(entry->d_name,".")!=0 && strcmp(entry->d_name,"..")!=0 && strcmp(entry->d_name,".git")!=0 && strcmp(entry->d_name,".neogit")!=0 && strcmp(entry->d_name,".vscode")!=0 
+        && strcmp(entry->d_name,"main")!=0 && strcmp(entry->d_name,"neogit")!=0 && strcmp(entry->d_name,"neogit.c")!=0)
+            printf("%s: -\n", entry->d_name);
     }
     closedir(dir);
 
@@ -581,7 +581,15 @@ bool is_staged(char *filename)
 int make_branch(int argc, char * const argv[])
 {
     if(argc == 2){
-
+        DIR * dir = opendir(".neogit/branches");
+        struct dirent *entry;
+        printf("master ");
+        while((entry = readdir(dir)) != NULL){
+            if(strcmp(entry->d_name,".")!=0 && strcmp(entry->d_name,"..")!=0)
+                printf("%s ", entry->d_name);
+        }
+        printf("\n");
+        closedir(dir);
     }
     else{
         char branch[1000];
@@ -600,6 +608,24 @@ int make_branch(int argc, char * const argv[])
             }
         }
 
+        FILE *file = fopen(".neogit/config", "r");
+        if (file == NULL) return -1;
+
+        int commit_count;
+        char line[MAX_LINE_LENGTH], tmp[10];
+        while (fgets(line, sizeof(line), file) != NULL) {
+            int length = strlen(line);
+
+            // remove '\n'
+            if (length > 0 && line[length - 1] == '\n') {
+                line[length - 1] = '\0';
+            }
+
+            if (strncmp(line, "last_commit_ID:", 15) == 0) {
+                sscanf(line, "last_commit_ID: %d\n", &commit_count);
+            }
+        }
+        fclose(file);
     }
 }
 
@@ -693,7 +719,7 @@ int main(int argc, char *argv[])
       }
       else if(strcmp(argv[2],"-f")==0){
          for(int i=3; i<argc; i++){
-            return add(argv[i]);
+            add(argv[i]);
          }
       }
       else if(strcmp(argv[2],"-n")==0){
@@ -712,7 +738,7 @@ int main(int argc, char *argv[])
       }
       else if(strcmp(argv[2],"-f")==0){
          for(int i=3; i<argc; i++){
-            return reset(argv[i]);
+            reset(argv[i]);
          }
       }
 
