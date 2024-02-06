@@ -90,6 +90,19 @@ int local_config(char *username, char *email)
     fprintf(file, "current_commit_ID: %d\n", 0);
     fprintf(file, "branch: %s", "master");
     fclose(file);
+    file = fopen(".neogit/staging", "w");
+    fclose(file);
+
+    file = fopen(".neogit/tracks", "w");
+    fclose(file);
+        // create commits folder
+    if (mkdir(".neogit/commits", 0755) != 0) return 1;
+
+        // create files folder
+    if (mkdir(".neogit/files", 0755) != 0) return 1;
+
+        // create branches folder
+    if (mkdir(".neogit/branches", 0755) != 0) return 1;
 
     return 0;
 }
@@ -131,22 +144,7 @@ int initialize(int argc, char* const argv[])
     //make .neogit dir
      if(!exists){
         if(mkdir(".neogit",0755)) return 1;
-        FILE * file;
-        file = fopen(".neogit/staging", "w");
-        fclose(file);
-
-        file = fopen(".neogit/tracks", "w");
-        fclose(file);
-        strcat(cwd,"/.neogit");
-        if(chdir(cwd) != 0) return 1;
-        // create commits folder
-        if (mkdir("commits", 0755) != 0) return 1;
-
-        // create files folder
-        if (mkdir("files", 0755) != 0) return 1;
-
-        // create branches folder
-        if (mkdir("branches", 0755) != 0) return 1;
+        
 
         return 0;
      }
@@ -671,7 +669,7 @@ int main(int argc, char *argv[])
    }
 
    else if(strcmp(argv[1],"config")==0){
-        return local_config(argv[3],argv[4]);
+        return local_config(argv[2],argv[3]);
    }
 
    else if(strcmp(argv[1],"init")==0){
