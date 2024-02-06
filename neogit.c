@@ -23,7 +23,7 @@ bool check_file_directory_exists(char *filepath);
 int global_config(char *username, char *email);
 int local_config(char *username, char *email);
 int initialize(int argc, char* const argv[]);
-int add(int argc, char * const argv[]);
+int add(char *filepath);
 int add_depth(char * dirname);
 int reset(char *filepath);
 int reset_redo();
@@ -40,7 +40,7 @@ int make_branch(int argc, char * const argv[]);
 int run_checkout(int argc, char * const argv[]);
 int find_file_last_change_before_commit(char *filepath, int commit_ID);
 int checkout_file(char *filepath, int commit_ID);
-int status(int argc, char * argv[]);
+int status(int argc, char * const argv[]);
 bool is_staged(char *filename);
 
 
@@ -92,6 +92,8 @@ int local_config(char *username, char *email)
     fclose(file);
     file = fopen(".neogit/staging", "w");
     fclose(file);
+
+    printf("Have a good luck in your project %s!\n", username);
 
     file = fopen(".neogit/tracks", "w");
     fclose(file);
@@ -153,10 +155,8 @@ int initialize(int argc, char* const argv[])
      }
 }
 
-int add(int argc, char * const argv[])
+int add(char *filepath)
 {
-   char filepath[MAX_FILENAME_LENGTH];
-   strcmp(filepath, argv[2]);
    FILE *file = fopen(".neogit/staging","r");
    if(file == NULL) return 1;
    char line[1000];
@@ -307,7 +307,13 @@ int run_commit(int argc, char * const argv[])
     fclose(file);
 
     create_commit_file(commit_ID, message);
-    fprintf(stdout, "commit successfully with commit ID %d", commit_ID);
+    printf("commit successfully with commit ID %d\ncommit message is %s\n", commit_ID, message);
+
+    time_t currentTime;
+    struct tm *localTime;
+    currentTime = time(NULL);
+    localTime = localtime(&currentTime);
+    fprintf(file, "time: %02d:%02d:%02d\n", localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
     
     return 0;
 }
@@ -490,15 +496,16 @@ int log_command(int argc, char * const argv[]){
             sscanf(line, "last_commit_ID: %d\n", &commit_count);
         }
     }
+    fclose(file);
     char address[MAX_PATH_LENGTH];
     strcpy(address,".neogit/commit/");
+    char msg[MAX_MESSAGE_LENGTH], author[1000];
+    int h, m, s, n;
     for(int i=commit_count; i>0; i--){
         sprintf(tmp,"%d",i);
         strcat(address,tmp);
-        FILE* file = fopen(address,"r");
-        int n=-1;
-        char line[MAX_LINE_LENGTH], msg[MAX_MESSAGE_LENGTH], author[1000];
-        int h, m, s;
+        file = fopen(address,"r");
+        n=-1;
         while (fgets(line, sizeof(line), file) != NULL) {
             int length = strlen(line);
 
@@ -523,9 +530,10 @@ int log_command(int argc, char * const argv[]){
         }
         printf("Commit: ID '%d'\nAuthor: %s\nTime: %d:%d:%d\nMessage: '%s'\n", i, author, h, m, s, msg);
     }
+    fclose(file);
 }
 
-int status(int argc, char * argv[])
+int status(int argc, char * const argv[])
 {
     struct dirent *entry;
     DIR *dir = opendir(".");
@@ -541,6 +549,8 @@ int status(int argc, char * argv[])
             printf("%s state is: +A\n", entry->d_name);
         else if(is_tracked(entry->d_name) && ~(is_staged(entry->d_name)))
             printf("%s has not changed\n", entry->d_name);
+        else if(~(is_tracked(entry->d_name)) && ~(is_staged(entry->d_name)))
+            printf("%s: File is untracked\n", entry->d_name);
     }
     closedir(dir);
 
@@ -682,8 +692,8 @@ int main(int argc, char *argv[])
         return 1;
       }
       else if(strcmp(argv[2],"-f")==0){
-         for(int i=3; i<argc-3; i++){
-            return add(argc, argv);
+         for(int i=3; i<argc; i++){
+            return add(argv[i]);
          }
       }
       else if(strcmp(argv[2],"-n")==0){
@@ -692,7 +702,7 @@ int main(int argc, char *argv[])
          return add_depth(cwd);
       }
       else
-         return add(argc, argv);
+         return add(argv[2]);
    }
 
    else if(strcmp(argv[1],"reset")==0){
@@ -701,7 +711,7 @@ int main(int argc, char *argv[])
         return 1;
       }
       else if(strcmp(argv[2],"-f")==0){
-         for(int i=3; i<argc-3; i++){
+         for(int i=3; i<argc; i++){
             return reset(argv[i]);
          }
       }
